@@ -1,26 +1,5 @@
 import random, sys, time
 
-###########################################################################
-#                                                                         #
-# Implement a hash table from scratch! (⑅•ᴗ•⑅)                            #
-#                                                                         #
-# Please do not use Python's dictionary or Python's collections library.  #
-# The goal is to implement the data structure yourself.                   #
-#                                                                         #
-###########################################################################
-
-# Hash function.
-#
-# |key|: string
-# Return value: a hash value
-def calculate_hash_example(key):
-    assert type(key) == str
-    # Note: This is not a good hash function. Do you see why?
-    hash = 0
-    for i in key:
-        hash += ord(i)
-    return hash
-
 def get_prime_number_list():
     prime_number_list = []
     def is_prime(x):
@@ -64,6 +43,7 @@ class Item:
         self.key = key
         self.value = value
         self.next = next
+        self.access_number = 0
 
 
 # The main data structure of the hash table that stores key - value pairs.
@@ -73,7 +53,7 @@ class Item:
 # |self.buckets|: An array of the buckets. self.buckets[hash % self.bucket_size]
 #                 stores a linked list of items whose hash value is |hash|.
 # |self.item_count|: The total number of items in the hash table.
-class HashTable:
+class Cache:
 
     # Initialize the hash table.
     def __init__(self):
@@ -82,6 +62,8 @@ class HashTable:
         self.bucket_size = 97
         self.buckets = [None] * self.bucket_size
         self.item_count = 0
+        self.cache_size = 5
+        
         
 
     # Put an item to the hash table. If the key already exists, the
@@ -94,6 +76,15 @@ class HashTable:
     def put(self, key, value):
         assert type(key) == str
         self.check_size() # Note: Don't remove this code.
+        # 他のitemのaccess_numberを1増やして、キャッシュサイズアウトしたら消す。
+        for i in range(len(self.buckets)):
+            item = self.buckets[i]
+            while item:
+                item.access_number += 1
+                if item.access_number >= self.cache_size:
+                    self.delete(item.key)
+                item = item.next
+        # 新しいアイテム追加
         bucket_index = calculate_hash(key) % self.bucket_size
         item = self.buckets[bucket_index]
         while item:
@@ -105,39 +96,8 @@ class HashTable:
         self.buckets[bucket_index] = new_item
         self.item_count += 1
         
-        if self.item_count > 0.7 * self.bucket_size:
-            self.spread_buckets()
-        elif self.item_count < 0.3 * self.bucket_size:
-            self.shrink_busckets()
         return True
     
-    def spread_buckets(self):
-        prev_bucket_size = self.bucket_size
-        self.bucket_size = self.bucket_size * 2 + 1
-        new_buckets = [None] * self.bucket_size
-        for i in range(prev_bucket_size):
-            item = self.buckets[i]
-            while item:
-                next_item = item.next
-                new_bucket_index = calculate_hash(item.key) % self.bucket_size
-                item.next = new_buckets[new_bucket_index]
-                new_buckets[new_bucket_index] = item
-                item = next_item
-        self.buckets = new_buckets
-        
-    def shrink_busckets(self):
-        prev_bucket_size =  self.bucket_size
-        self.bucket_size = (self.bucket_size + 1) // 2 -1
-        new_buckets = [None] * self.bucket_size
-        for i in range(prev_bucket_size):
-            item = self.buckets[i]
-            while item:
-                next_item = item.next
-                new_bucket_index = calculate_hash(item.key) % self.bucket_size
-                item.next = new_buckets[new_bucket_index]
-                new_buckets[new_bucket_index] = item
-                item = next_item
-        self.buckets = new_buckets
 
     # Get an item from the hash table.
     #
@@ -198,15 +158,16 @@ class HashTable:
 
 # Test the functional behavior of the hash table.
 def functional_test():
-    hash_table = HashTable()
+    hash_table = Cache()
 
     assert hash_table.put("aaa", 1) == True
-    assert hash_table.get("aaa") == (1, True)
+    assert hash_table.get("aaa") == (1, True)   
     assert hash_table.size() == 1
 
     assert hash_table.put("bbb", 2) == True
     assert hash_table.put("ccc", 3) == True
     assert hash_table.put("ddd", 4) == True
+
     assert hash_table.get("aaa") == (1, True)
     assert hash_table.get("bbb") == (2, True)
     assert hash_table.get("ccc") == (3, True)
@@ -238,27 +199,27 @@ def functional_test():
     assert hash_table.get("ddd") == (None, False)
     assert hash_table.size() == 0
 
-    assert hash_table.put("abc", 1) == True
-    assert hash_table.put("acb", 2) == True
-    assert hash_table.put("bac", 3) == True
-    assert hash_table.put("bca", 4) == True
-    assert hash_table.put("cab", 5) == True
-    assert hash_table.put("cba", 6) == True
-    assert hash_table.get("abc") == (1, True)
-    assert hash_table.get("acb") == (2, True)
-    assert hash_table.get("bac") == (3, True)
-    assert hash_table.get("bca") == (4, True)
-    assert hash_table.get("cab") == (5, True)
-    assert hash_table.get("cba") == (6, True)
-    assert hash_table.size() == 6
+    # assert hash_table.put("abc", 1) == True
+    # assert hash_table.put("acb", 2) == True
+    # assert hash_table.put("bac", 3) == True
+    # assert hash_table.put("bca", 4) == True
+    # assert hash_table.put("cab", 5) == True
+    # assert hash_table.put("cba", 6) == True
+    # assert hash_table.get("abc") == (1, True)
+    # assert hash_table.get("acb") == (2, True)
+    # assert hash_table.get("bac") == (3, True)
+    # assert hash_table.get("bca") == (4, True)
+    # assert hash_table.get("cab") == (5, True)
+    # assert hash_table.get("cba") == (6, True)
+    # assert hash_table.size() == 6
 
-    assert hash_table.delete("abc") == True
-    assert hash_table.delete("cba") == True
-    assert hash_table.delete("bac") == True
-    assert hash_table.delete("bca") == True
-    assert hash_table.delete("acb") == True
-    assert hash_table.delete("cab") == True
-    assert hash_table.size() == 0
+    # assert hash_table.delete("abc") == True
+    # assert hash_table.delete("cba") == True
+    # assert hash_table.delete("bac") == True
+    # assert hash_table.delete("bca") == True
+    # assert hash_table.delete("acb") == True
+    # assert hash_table.delete("cab") == True
+    # assert hash_table.size() == 0
     print("Functional tests passed!")
 
 
@@ -271,7 +232,7 @@ def functional_test():
 # table when the number of items in the hash table hits some threshold) and
 # 2) tweak the hash function (Hint: think about ways to reduce hash conflicts).
 def performance_test():
-    hash_table = HashTable()
+    hash_table = Cache()
 
     for iteration in range(100):
         begin = time.time()
