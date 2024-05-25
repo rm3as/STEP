@@ -25,11 +25,11 @@ def read_minus(line, index):
     token = {'type': 'MINUS'}
     return token, index + 1
 
-def read_multiply(line, index):
+def read_multiply(line, index): # "*"をtokenに変換
     token = {'type': 'MULTIPLY'}
     return token, index + 1
 
-def read_devide(line, index):
+def read_devide(line, index): # "/"をtokenに変換
     token = {'type': 'DEVIDE'}
     return token, index + 1
 
@@ -57,16 +57,16 @@ def tokenize(line):
 
 
 def evaluate(tokens):
-    def evaluate_mul_dev(tokens):
+    def evaluate_mul_dev(tokens): # 最初に掛け算割り算する
         index = 1
         while index < len(tokens):
             if tokens[index]['type'] == 'MULTIPLY':
                 part_result = tokens[index - 1]['number'] * tokens[index + 1]['number']
-                tokens[index - 1]['number'] = part_result
+                tokens[index - 1]['number'] = part_result # ex. 5*3 → 15 token上で書き換える
                 del tokens[index : index + 2]
             elif tokens[index]['type'] == 'DEVIDE':
                 part_result = tokens[index - 1]['number'] / tokens[index + 1]['number']
-                tokens[index - 1]['number'] = part_result
+                tokens[index - 1]['number'] = part_result # ex. 4/2 → 2 token上で書き換える
                 del tokens[index : index + 2]
             else:
                 index += 1
@@ -104,8 +104,8 @@ def run_test():
     print("==== Test started! ====")
     test("1+2")
     test("1.0+2.1-3")
-    test("4+2*5")
-    test("4/2*1+2")
+    test("4+2*5") # 掛け算を後ろに書いても、掛け算から計算してくれるか
+    test("4/2*1+2") # 掛け算と割り算連続でできるか
     test("2")
     test("5+3*5+1")
     print("==== Test finished! ====\n")
