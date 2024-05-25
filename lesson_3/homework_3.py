@@ -75,23 +75,22 @@ def evaluate(tokens):
         while index < len(tokens):
             if tokens[index]['type'] == 'BRA': # 対応するケットがでてきたら
                 bracket_count += 1
+                bra_index = index
                 index += 1
-                part_line_index_begin = index
-                while index < len(tokens) and bracket_count != 0:
-                    if tokens[index]['type'] == 'BRA':
+                part_line_index = bra_index
+                
+                while part_line_index < len(tokens) and bracket_count != 0:
+                    part_line_index += 1
+                    if tokens[part_line_index]['type'] == 'BRA':
                         bracket_count += 1
-                    elif tokens[index]['type'] == 'CKET':
+                    elif tokens[part_line_index]['type'] == 'CKET':
                         bracket_count -= 1
-                    index += 1
-                    print(bracket_count)
-                part_line_index_end = index - 1
-                part_tokens = tokens[part_line_index_begin : part_line_index_end]
+                cket_index = part_line_index
+                part_tokens = tokens[bra_index + 1 : cket_index]
                 print(f"part_tokens:\n{part_tokens}")
                 part_ans = evaluate(part_tokens)
-                tokens[part_line_index_begin - 1] = {'type': 'NUMBER', 'number': part_ans}
-                del tokens[part_line_index_begin : part_line_index_end + 1]
-                index = part_line_index_begin + 1
-                
+                tokens[bra_index] = {'type': 'NUMBER', 'number': part_ans}
+                del tokens[bra_index + 1 : cket_index + 1]
             else:
                 index += 1
         return tokens
@@ -148,6 +147,7 @@ def run_test():
     test("4/2*1+2")
     test("5+3.2*5+1.7")
     test("(5+3)*2")
+    test("(5+3.4)*2/1+(4+2)/2")
     print("==== Test finished! ====\n")
 
 run_test()
