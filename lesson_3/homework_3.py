@@ -33,6 +33,14 @@ def read_devide(line, index):
     token = {'type': 'DEVIDE'}
     return token, index + 1
 
+def read_bra(line, index):
+    token = {'type': 'BRA'}
+    return token, index + 1
+
+def read_cket(line, index):
+    token = {'type': 'CKET'}
+    return token, index + 1
+
 
 def tokenize(line):
     tokens = []
@@ -48,6 +56,10 @@ def tokenize(line):
             (token, index) = read_multiply(line, index)
         elif line[index] == '/':
             (token, index) = read_devide(line, index)
+        elif line[index] == '(':
+            (token, index) = read_bra(line, index)
+        elif line[index] == ')':
+            (token, index) = read_cket(line, index)
         else:
             print('Invalid character found: ' + line[index])
             exit(1)
@@ -57,6 +69,33 @@ def tokenize(line):
 
 
 def evaluate(tokens):
+    def evaluate_bracket(tokens):
+        index = 0
+        bracket_count = 0
+        while index < len(tokens):
+            if tokens[index]['type'] == 'BRA': # 対応するケットがでてきたら
+                bracket_count += 1
+                index += 1
+                part_line_index_begin = index
+                while index < len(tokens) and bracket_count != 0:
+                    if tokens[index]['type'] == 'BRA':
+                        bracket_count += 1
+                    elif tokens[index]['type'] == 'CKET':
+                        bracket_count -= 1
+                    index += 1
+                    print(bracket_count)
+                part_line_index_end = index - 1
+                part_tokens = tokens[part_line_index_begin : part_line_index_end]
+                print(f"part_tokens:\n{part_tokens}")
+                part_ans = evaluate(part_tokens)
+                tokens[part_line_index_begin - 1] = {'type': 'NUMBER', 'number': part_ans}
+                del tokens[part_line_index_begin : part_line_index_end + 1]
+                index = part_line_index_begin + 1
+                
+            else:
+                index += 1
+        return tokens
+        
     def evaluate_mul_dev(tokens):
         index = 1
         while index < len(tokens):
@@ -71,6 +110,8 @@ def evaluate(tokens):
             else:
                 index += 1
         return tokens
+    print(tokens)
+    tokens = evaluate_bracket(tokens)
     tokens = evaluate_mul_dev(tokens)
     answer = 0
     tokens.insert(0, {'type': 'PLUS'}) # Insert a dummy '+' token
@@ -98,7 +139,6 @@ def test(line):
     else:
         print("FAIL! (%s should be %f but was %f)" % (line, expected_answer, actual_answer))
 
-
 # Add more tests to this function :)
 def run_test():
     print("==== Test started! ====")
@@ -106,8 +146,8 @@ def run_test():
     test("1.0+2.1-3")
     test("4+2*5")
     test("4/2*1+2")
-    test("2")
-    test("5+3*5+1")
+    test("5+3.2*5+1.7")
+    test("(5+3)*2")
     print("==== Test finished! ====\n")
 
 run_test()
