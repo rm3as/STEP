@@ -33,14 +33,13 @@ def read_devide(line, index):
     token = {'type': 'DEVIDE'}
     return token, index + 1
 
-def read_bra(line, index):
+def read_bra(line, index): # 左括弧をtokenに直す
     token = {'type': 'BRA'}
     return token, index + 1
 
-def read_cket(line, index):
+def read_cket(line, index): # 右括弧をtokenに直す
     token = {'type': 'CKET'}
     return token, index + 1
-
 
 def tokenize(line):
     tokens = []
@@ -69,28 +68,28 @@ def tokenize(line):
 
 
 def evaluate(tokens):
-    def evaluate_bracket(tokens):
+    def evaluate_bracket(tokens): # 括弧があったら先に計算する。再帰呼び出し
         index = 0
         bracket_count = 0
         while index < len(tokens):
-            if tokens[index]['type'] == 'BRA': # 対応するケットがでてきたら
+            if tokens[index]['type'] == 'BRA': # このBRAは一番外側のBRA
                 bracket_count += 1
                 bra_index = index
                 index += 1
                 part_line_index = bra_index
                 
-                while part_line_index < len(tokens) and bracket_count != 0:
+                while part_line_index < len(tokens) and bracket_count != 0: # bracket_countが0になる<=>最も外側の括弧が閉じられる
                     part_line_index += 1
                     if tokens[part_line_index]['type'] == 'BRA':
                         bracket_count += 1
                     elif tokens[part_line_index]['type'] == 'CKET':
                         bracket_count -= 1
                 cket_index = part_line_index
-                part_tokens = tokens[bra_index + 1 : cket_index]
+                part_tokens = tokens[bra_index + 1 : cket_index] # 括弧内の数式を切り出す
                 print(f"part_tokens:\n{part_tokens}")
-                part_ans = evaluate(part_tokens)
+                part_ans = evaluate(part_tokens) # 切り出された括弧内の数式を計算
                 tokens[bra_index] = {'type': 'NUMBER', 'number': part_ans}
-                del tokens[bra_index + 1 : cket_index + 1]
+                del tokens[bra_index + 1 : cket_index + 1] # ex. (5+3)→8 token上で書き換える
             else:
                 index += 1
         return tokens
