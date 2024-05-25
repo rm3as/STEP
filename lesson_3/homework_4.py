@@ -1,4 +1,5 @@
 #! /usr/bin/python3
+import math
 
 def read_number(line, index):
     number = 0
@@ -33,13 +34,25 @@ def read_devide(line, index):
     token = {'type': 'DEVIDE'}
     return token, index + 1
 
-def read_bra(line, index): # 左括弧をtokenに直す
+def read_bra(line, index): 
     token = {'type': 'BRA'}
     return token, index + 1
 
-def read_cket(line, index): # 右括弧をtokenに直す
+def read_cket(line, index):
     token = {'type': 'CKET'}
     return token, index + 1
+
+def read_abs(line, index): # absをtokenに直す
+    token = {'type': 'ABS'}
+    return token, index + 3
+
+def read_int(line, index): # intsをtokenに直す
+    token = {'type': 'INT'}
+    return token, index + 3
+
+def read_round(line, index): # roundをtokenに直す
+    token = {'type': 'ROUND'}
+    return token, index + 5
 
 def tokenize(line):
     tokens = []
@@ -59,6 +72,13 @@ def tokenize(line):
             (token, index) = read_bra(line, index)
         elif line[index] == ')':
             (token, index) = read_cket(line, index)
+        elif line[index : index + 3] == 'abs':
+            (token, index) = read_abs(line, index)
+        elif line[index : index + 3] == 'int':
+            (token, index) = read_int(line, index)
+        elif line[index : index + 5] == 'round':
+            (token, index) = read_round(line, index)
+        
         else:
             print('Invalid character found: ' + line[index])
             exit(1)
@@ -68,30 +88,48 @@ def tokenize(line):
 
 
 def evaluate(tokens):
-    def evaluate_bracket(tokens): # 括弧があったら先に計算する。再帰呼び出し
+    def evaluate_bracket(tokens):
         index = 0
         bracket_count = 0
         while index < len(tokens):
-            if tokens[index]['type'] == 'BRA': # このBRAは一番外側のBRA
+            if tokens[index]['type'] == 'BRA':
                 bracket_count += 1
                 bra_index = index
                 index += 1
                 part_line_index = bra_index
                 
-                while part_line_index < len(tokens) and bracket_count != 0: # bracket_countが0になる<=>最も外側の括弧が閉じられる
+                while part_line_index < len(tokens) and bracket_count != 0:
                     part_line_index += 1
                     if tokens[part_line_index]['type'] == 'BRA':
                         bracket_count += 1
                     elif tokens[part_line_index]['type'] == 'CKET':
                         bracket_count -= 1
                 cket_index = part_line_index
-                part_tokens = tokens[bra_index + 1 : cket_index] # 括弧内の数式を切り出す
-                print(f"part_tokens:\n{part_tokens}")
-                part_result = evaluate(part_tokens) # 切り出された括弧内の数式を計算
+                part_tokens = tokens[bra_index + 1 : cket_index]
+                # print(f"part_tokens:\n{part_tokens}")
+                part_result = evaluate(part_tokens)
                 tokens[bra_index] = {'type': 'NUMBER', 'number': part_result}
                 del tokens[bra_index + 1 : cket_index + 1] # ex. (5+3)→8 token上で書き換える
             else:
                 index += 1
+        return tokens
+    
+    def format_number(tokens): # abs, int, roundを計算
+        index = 0
+        while index < len(tokens):
+            part_result = None
+            # abs nun, int num, round numをそれぞれ計算
+            if tokens[index]['type'] == 'ABS':
+                part_result = abs(tokens[index + 1]['number'])
+            elif tokens[index]['type'] == 'INT':
+                part_result = math.floor(tokens[index + 1]['number'])
+            elif tokens[index]['type'] == 'ROUND':
+                part_result = round(tokens[index + 1]['number'])
+            # token上で書き換える ex. int 5.9 → 5
+            if part_result is not None:
+                tokens[index] = {'type': 'NUMBER', 'number': part_result}
+                del tokens[index + 1]
+            index += 1
         return tokens
         
     def evaluate_mul_dev(tokens):
@@ -108,8 +146,9 @@ def evaluate(tokens):
             else:
                 index += 1
         return tokens
-    print(tokens)
+    # print(tokens)
     tokens = evaluate_bracket(tokens)
+    tokens = format_number(tokens)
     tokens = evaluate_mul_dev(tokens)
     answer = 0
     tokens.insert(0, {'type': 'PLUS'}) # Insert a dummy '+' token
@@ -147,6 +186,10 @@ def run_test():
     test("5+3.2*5+1.7")
     test("(5+3)*2")
     test("(5+3.4)*2/1+(4+2)/2")
+    test("int(5.3)")
+    test("round(5+3.9)*2+4")
+    test("int(5+3.4)/abs(5-9)*2+4")
+    
     print("==== Test finished! ====\n")
 
 run_test()
