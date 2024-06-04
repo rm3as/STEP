@@ -107,7 +107,7 @@ class Wikipedia:
 
     # Calculate the page ranks and print the most popular pages.
     def find_most_popular_pages(self):
-        damping_factor = 0.85
+        giving_point = 0.85
         # ランク初期化
         page_ranks = {}
         for page_id in self.titles.keys():
@@ -115,34 +115,37 @@ class Wikipedia:
         
         # 収束するまで頑張る
         for _ in range(100):
-            next_page_ranks = {}
-            total_rank = 0
-            for page_id in self.titles.keys(): # total の点数同じかな
-                total_rank += page_ranks[page_id]
-                print(total_rank)
+            # デバッグ用
+            # total_rank_must_be = len(self.titles)
+            # total_rank = 0
+            # for page_id in self.titles.keys(): # total の点数同じか確認
+            #     total_rank += page_ranks[page_id]
+            # if total_rank_must_be - total_rank > 0.01:
+            #     print(page_ranks)
+            #     print(total_rank, total_rank_must_be)
+            #     print("error")
+            #     return -1
+                
             
             for page_id in self.titles.keys():
-                rank = (1 - damping_factor) / len(self.titles)
-                for src, dst in self.links.items():
-                    if page_id in dst:
-                        rank += damping_factor * page_ranks[src] / len(dst)
-                next_page_ranks[page_id] = rank
-
-            page_ranks = next_page_ranks
+                if len(self.links[page_id]) == 0:
+                    page_ranks[page_id] = 0
+                    for page_id in self.titles.keys():
+                        page_ranks[page_id] += (1-giving_point) / len(self.links[page_id])
+                        
+                page_ranks[page_id] -= 0.85
+                rank = 1 - giving_point
+                for neighbor_id in self.links[page_id]:
+                    page_ranks[neighbor_id] += giving_point / len(self.links[page_id])
+            
 
         sorted_pages = sorted(page_ranks.items(), key=lambda x: x[1], reverse=True)
         print("The most popular pages using Random Surfer Model are:")
-        for page_id, rank in sorted_pages[:10]:
-            print(self.titles[page_id], rank)
-        print("a")
+        popular_page_id, popular_rank = sorted_pages[0]
+        print(self.titles[popular_page_id], popular_rank)
+        
             
-            
-                
-        #------------------------#
-        # Write your code here!  #
-        #------------------------#
-        pass
-
+        
 
     # Do something more interesting!!
     def find_something_more_interesting(self):
