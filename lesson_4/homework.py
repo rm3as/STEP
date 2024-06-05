@@ -107,15 +107,27 @@ class Wikipedia:
 
     # Calculate the page ranks and print the most popular pages.
     def find_most_popular_pages(self):
-        giving_point = 0.85
+        neighbor_ratio = 0.85
         # ランク初期化
         page_ranks = {}
         for page_id in self.titles.keys():
             page_ranks[page_id] = 1
+            
+        # ページランクの収束を確認する関数
+        def check_convergence(page_ranks, new_page_ranks):
+            for page_id in page_ranks.keys():
+                if abs(page_ranks[page_id] - new_page_ranks[page_id]) > 0.01:
+                    return False
+            return True
+        
         
         # 収束するまで頑張る
-        for _ in range(100):
-            # デバッグ用
+        convergence_flag = False
+        roop_count= 0
+        while(not convergence_flag):
+            roop_count+= 1        
+            # デバッグ用 全てのページのpointの合計が同じか確認
+            # print(page_ranks)
             # total_rank_must_be = len(self.titles)
             # total_rank = 0
             # for page_id in self.titles.keys(): # total の点数同じか確認
@@ -125,22 +137,40 @@ class Wikipedia:
             #     print(total_rank, total_rank_must_be)
             #     print("error")
             #     return -1
-                
             
+            # Random Surferモデルの実装　詳細はREADME
+            
+            # new_page_ranks辞書の初期化
+            new_page_ranks = {}
+            for page_id in self.titles.keys():
+                new_page_ranks[page_id] = 0
+            
+            # 隣のノードにポイントあげる。全てのノードに均等に渡すページランク分は、あとでふりわける。
+            total_random_giving_points = 0
             for page_id in self.titles.keys():
                 if len(self.links[page_id]) == 0:
+                    total_random_giving_points += page_ranks[page_id]
                     page_ranks[page_id] = 0
-                    for page_id in self.titles.keys():
-                        page_ranks[page_id] += (1-giving_point) / len(self.links[page_id])
-                        
-                page_ranks[page_id] -= 0.85
-                rank = 1 - giving_point
-                for neighbor_id in self.links[page_id]:
-                    page_ranks[neighbor_id] += giving_point / len(self.links[page_id])
-            
+                
+                else:
+                    total_random_giving_points += page_ranks[page_id] * (1-neighbor_ratio)
+                    for neighbor_id in self.links[page_id]:
+                        new_page_ranks[neighbor_id] += page_ranks[page_id] * neighbor_ratio / len(self.links[page_id])
 
+                        
+            # 他のノードからrandomにとんできたpointを足す
+            each_given_points = total_random_giving_points / len(self.titles)
+            for page_id in self.titles.keys():
+                new_page_ranks[page_id] += each_given_points
+            
+            # 収束したか確認
+            convergence_flag = check_convergence(page_ranks, new_page_ranks)
+            # page_ranksを書き換える
+            page_ranks = new_page_ranks
+            
+        print(f"ループ{roop_count}回で収束") 
         sorted_pages = sorted(page_ranks.items(), key=lambda x: x[1], reverse=True)
-        print("The most popular pages using Random Surfer Model are:")
+        print("The most popular pages using Random Surfer Model is:")
         popular_page_id, popular_rank = sorted_pages[0]
         print(self.titles[popular_page_id], popular_rank)
         
@@ -161,7 +191,7 @@ if __name__ == "__main__":
         exit(1)
 
     wikipedia = Wikipedia(sys.argv[1], sys.argv[2])
-    # wikipedia.find_longest_titles()
+    wikipedia.find_longest_titles()
     # wikipedia.find_most_linked_pages()
     wikipedia.find_shortest_path("A", "E")
     wikipedia.find_most_popular_pages()
