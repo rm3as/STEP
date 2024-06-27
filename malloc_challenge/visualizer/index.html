@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <title>malloc visualizer</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet">
+  <style>
+body {
+  font-family: 'Source Code Pro', monospace;
+  margin:0;
+  margin-left: 16px;
+  margin-right: 16px;
+}
+#fileDropZone {
+  border: 2px dashed #bbb;
+  padding: 25px;
+  text-align: center;
+  font: 20pt bold;
+  color: #bbb;
+}
+  </style>
+</head>
+<body>
+<h1>malloc visualizer</h1>
+<div id="fileDropZone">Drop trace.txt here</div>
+<div>
+    <canvas id="chart"></canvas>
+</div>
+<div>
+  <label for="progress">Utilization = <span id="utilizationSpan"></span>%</label>
+</div>
+<div>
+  <label for="progress">Progress = <span id="progressSpan"></span></label>
+</div>
+<div>
+  <input type="range" id="progress" name="progress"
+                                  min="0" max="0" style="width: 80%">
+</div>
+<div>
+  Playback:
+  <input type="number" id="opsPerSec" name="opsPerSec"
+       min="1" max="1000">ops/sec
+  <button id="startButton">Start</button>
+  <button id="stopButton">Stop</button>
+</div>
+<div>
+  <label for="hsegments">Horizontal segments = <span id="hsegmentsSpan"></span></label>
+</div>
+<div>
+  <input type="range" id="hsegments" name="hsegments"
+                                  min="3" max="16" value="12">
+</div>
+<div>
+<canvas id='backedCanvas' style="display:none"></canvas>
+</div>
+<div>
+<canvas id='mainCanvas' style="width:100%;"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="text/javascript" src="visualizer.js"></script>
+</body>

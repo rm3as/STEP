@@ -1,0 +1,5 @@
+*.bin
+*.swp
+*.dSYM
+out.txt
+.DS_Store

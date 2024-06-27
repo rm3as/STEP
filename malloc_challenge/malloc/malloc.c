@@ -6,6 +6,8 @@
 // Initial implementation is the same as the one implemented in simple_malloc.c.
 // For the detailed explanation, please refer to simple_malloc.c.
 
+#include <stdlib.h>
+#include <limits.h>
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -15,57 +17,83 @@
 #include <string.h>
 #include <math.h>
 
+#define NUM_BINS 10
 //
 // Interfaces to get memory pages from OS
 //
 
-void *mmap_from_system(size_t size);
-void munmap_to_system(void *ptr, size_t size);
+void* mmap_from_system(size_t size);
+void munmap_to_system(void* ptr, size_t size);
 
 //
 // Struct definitions
 //
 
 typedef struct my_metadata_t {
-  size_t size;
-  struct my_metadata_t *next;
+    size_t size;
+    struct my_metadata_t* next;
 } my_metadata_t;
 
 typedef struct my_heap_t {
-  my_metadata_t *free_head;
-  my_metadata_t dummy;
+    my_metadata_t* free_head[NUM_BINS];
+    my_metadata_t dummy[NUM_BINS];
 } my_heap_t;
-
-#define NUM_BINS 3
-my_heap_t free_list_bins[NUM_BINS];
 
 //
 // Static variables (DO NOT ADD ANOTHER STATIC VARIABLES!)
 //
-my_heap_t my_heap; //いるか不明
+my_heap_t my_heap;
 
 //
 // Helper functions (feel free to add/remove/edit!)
 //
 
-void my_add_to_free_list(my_metadata_t *metadata) {
-  assert(!metadata->next);
-  // me_heapをfree_list_binの配列に割りふる
-  int bin_index = (int)fmax(log2(metadata->size) - (12 - NUM_BINS + 1), 0.0) + 1;
-  // int bin_index = metadata->size / (4096 / NUM_BINS);
-  metadata->next = free_list_bins[bin_index].free_head;
-  free_list_bins[bin_index].free_head = metadata;
+int get_bin_index(size_t size){
+  if (size <= 4096){
+    return (int)fmax(log2(size) - (12 - NUM_BINS + 1), 0.0);
+  }
+  else{
+    return NUM_BINS - 1;
+  }
 }
 
-void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
-  int bin_index = (int)fmax(log2(metadata->size) - (12 - NUM_BINS + 1), 0.0) + 1;
+// int get_bin_index(size_t size){
+//   if (size <= (1 << NUM_BINS)){
+//     return (int)(log2(size) / 3.0);
+//   }
+//   else{
+//     return NUM_BINS - 1;
+//   }
+// }
 
-  if (prev) {
-    prev->next = metadata->next;
-  } else {
-    free_list_bins[bin_index].free_head = metadata->next;
-  }
-  metadata->next = NULL;
+void my_add_to_free_list(my_metadata_t* metadata)
+{
+    assert(!metadata->next);
+    size_t bin_index = get_bin_index(metadata->size);
+    metadata->next = my_heap.free_head[bin_index];
+    my_heap.free_head[bin_index] = metadata;
+}
+
+void my_remove_from_free_list(my_metadata_t* metadata, my_metadata_t* prev)
+{
+    int bin_index = get_bin_index(metadata->size);
+    if (prev) {
+        prev->next = metadata->next;
+    } else {
+        my_heap.free_head[bin_index] = metadata->next;
+    }
+    metadata->next = NULL;
+}
+
+// get_bin_indexで得られたindexと違うindexのbinの中の領域を消すため
+void my_remove_from_free_list_with_index(my_metadata_t* metadata, my_metadata_t* prev, size_t bin_index)
+{
+    if (prev) {
+        prev->next = metadata->next;
+    } else {
+        my_heap.free_head[bin_index] = metadata->next;
+    }
+    metadata->next = NULL;
 }
 
 //
@@ -73,117 +101,150 @@ void my_remove_from_free_list(my_metadata_t *metadata, my_metadata_t *prev) {
 //
 
 // This is called at the beginning of each challenge.
-void my_initialize() {
-  // my_heap.free_head = &my_heap.dummy;
-  // my_heap.dummy.size = 0;
-  // my_heap.dummy.next = NULL;
-  for (int i = 0; i < NUM_BINS; i++) {
-    free_list_bins[i].free_head = &free_list_bins[i].dummy;
-    free_list_bins[i].dummy.size = 0;
-    free_list_bins[i].dummy.next = NULL;
-  }
+void my_initialize()
+{
+    for (int i = 0; i < NUM_BINS; ++i) {
+        my_heap.free_head[i] = &my_heap.dummy[i];
+        my_heap.dummy[i].size = 0;
+        my_heap.dummy[i].next = NULL;
+    }
 }
+
 
 // my_malloc() is called every time an object is allocated.
 // |size| is guaranteed to be a multiple of 8 bytes and meets 8 <= |size| <=
 // 4000. You are not allowed to use any library functions other than
 // mmap_from_system() / munmap_to_system().
-void *my_malloc(size_t size) {
-  my_metadata_t *metadata = my_heap.free_head;
-  my_metadata_t *prev = NULL;
-  my_metadata_t *best_fit = NULL;
-  my_metadata_t *best_fit_prev = NULL;
-  size_t best_fit_diff = 4096;
-  // First-fit: Find the first free slot the object fits.
-  // TODO: Update this logic to Best-fit!
-  while(metadata){
-    if (metadata->size >= size && (metadata->size - size) < best_fit_diff){
-      best_fit = metadata;
-      best_fit_prev = prev;
-      best_fit_diff = metadata->size - size;
+void* my_malloc(size_t size)
+{
+
+    int bin_index = get_bin_index(size);
+    size_t best_fit_index;
+
+    my_metadata_t* best_fit = NULL;
+    my_metadata_t* best_fit_prev = NULL;
+    // First-fit: Find the first free slot the object fits.
+    // TODO: Update this logic to Best-fit!
+    //size_t searching_count = 0;
+    for (size_t i = bin_index; i < NUM_BINS  && !best_fit; ++i) { // best_fitが見つからなかったら１つ次のheapも探す
+        my_metadata_t* metadata = my_heap.free_head[i];
+        my_metadata_t* prev = NULL;
+        while (metadata) {
+            if ((!best_fit || metadata->size < best_fit->size) && metadata->size >= size) {
+                best_fit = metadata;
+                best_fit_prev = prev;
+                best_fit_index = i;
+            }
+            if (best_fit){
+              size_t diff = best_fit->size - size;
+              if (diff < size * 0.01){ //差分がtargetのsizeの0.01倍のものが見つかったら終了 Yuhoさんのを真似した
+                break;
+              }
+            }
+            prev = metadata;
+            metadata = metadata->next;
+        }
     }
-    prev = metadata;
-    metadata = metadata->next;
-  }
-  metadata = best_fit;
-  prev = best_fit_prev;
+    // now, metadata points to the first free slot
+    // and prev is the previous entry.
 
-  
-  // now, metadata points to the first free slot
-  // and prev is the previous entry.
+    //printf("%p\n",best_fit);
+    //printf("%p\n",best_fit_prev);
 
-  if (!metadata) {
-    // There was no free slot available. We need to request a new memory region
-    // from the system by calling mmap_from_system().
+    if (!best_fit) {
+        // There was no free slot available. We need to request a new memory region
+        // from the system by calling mmap_from_system().
+        //
+        //     | metadata | free slot |
+        //     ^
+        //     metadata
+        //     <---------------------->
+        //            buffer_size
+        size_t buffer_size = 4096;
+        my_metadata_t* metadata = (my_metadata_t*)mmap_from_system(buffer_size);
+        metadata->size = buffer_size - sizeof(my_metadata_t);
+        metadata->next = NULL;
+        // Add the memory region to the free list.
+        my_add_to_free_list(metadata);
+        // Now, try my_malloc() again. This should succeed.
+        return my_malloc(size);
+    }
+
+    // |ptr| is the beginning of the allocated object.
     //
-    //     | metadata | free slot |
-    //     ^
-    //     metadata
-    //     <---------------------->
-    //            buffer_size
-    size_t buffer_size = 4096;
-    my_metadata_t *metadata = (my_metadata_t *)mmap_from_system(buffer_size);
-    metadata->size = buffer_size - sizeof(my_metadata_t);
-    metadata->next = NULL;
-    // Add the memory region to the free list.
-    my_add_to_free_list(metadata);
-    // Now, try my_malloc() again. This should succeed.
-    return my_malloc(size);
-  }
+    // ... | metadata | object | ...
+    //     ^          ^
+    //     metadata   ptr
+    //printf("called best fit\n");
+    void* ptr = best_fit + 1;
+    size_t remaining_size = best_fit->size - size;
+    best_fit->size = size;
+    // Remove the free slot from the free list.
+    my_remove_from_free_list_with_index(best_fit, best_fit_prev, best_fit_index);
 
-  // |ptr| is the beginning of the allocated object.
-  //
-  // ... | metadata | object | ...
-  //     ^          ^
-  //     metadata   ptr
-  void *ptr = metadata + 1;
-  size_t remaining_size = metadata->size - size;
-  // Remove the free slot from the free list.
-  my_remove_from_free_list(metadata, prev);
-
-  if (remaining_size > sizeof(my_metadata_t)) {
-    // Shrink the metadata for the allocated object
-    // to separate the rest of the region corresponding to remaining_size.
-    // If the remaining_size is not large enough to make a new metadata,
-    // this code path will not be taken and the region will be managed
-    // as a part of the allocated object.
-    metadata->size = size;
-    // Create a new metadata for the remaining free slot.
-    //
-    // ... | metadata | object | metadata | free slot | ...
-    //     ^          ^        ^
-    //     metadata   ptr      new_metadata
-    //                 <------><---------------------->
-    //                   size       remaining size
-    my_metadata_t *new_metadata = (my_metadata_t *)((char *)ptr + size);
-    new_metadata->size = remaining_size - sizeof(my_metadata_t);
-    new_metadata->next = NULL;
-    // Add the remaining free slot to the free list.
-    my_add_to_free_list(new_metadata);
-  }
-  return ptr;
+    if (remaining_size > sizeof(my_metadata_t)) {
+        //printf("create new metadata for remaining free slot\n");
+        // Create a new metadata for the remaining free slot.
+        //
+        // ... | metadata | object | metadata | free slot | ...
+        //     ^          ^        ^
+        //     metadata   ptr      new_metadata
+        //                 <------><---------------------->
+        //                   size       remaining size
+        my_metadata_t* new_metadata = (my_metadata_t*)((char*)ptr + size);
+        new_metadata->size = remaining_size - sizeof(my_metadata_t);
+        new_metadata->next = NULL;
+        // Add the remaining free slot to the free list.
+        my_add_to_free_list(new_metadata);
+    }
+    return ptr;
 }
 
 // This is called every time an object is freed.  You are not allowed to
 // use any library functions other than mmap_from_system / munmap_to_system.
-void my_free(void *ptr) {
-  // Look up the metadata. The metadata is placed just prior to the object.
-  //
-  // ... | metadata | object | ...
-  //     ^          ^
-  //     metadata   ptr
-  my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
-  // Add the free slot to the free list.
-  my_add_to_free_list(metadata);
+void my_free(void* ptr)
+{
+    // Look up the metadata. The metadata is placed just prior to the object.
+    //
+    // ... | metadata | object | ...
+    //     ^          ^
+    //     metadata   ptr
+    my_metadata_t *metadata = (my_metadata_t *)ptr - 1;
+    my_metadata_t* next = (my_metadata_t*)((char*)metadata + metadata->size + sizeof(my_metadata_t));
+    my_metadata_t* prev = NULL;
+
+    // int original_bin_index = get_bin_index(metadata->size);
+
+    // 前のブロックが空いているか確認
+    if (metadata > (my_metadata_t*)mmap_from_system(0)) {
+        prev = (my_metadata_t*)((char*)metadata - sizeof(size_t));
+        prev = (my_metadata_t*)((char*)prev - prev->size - sizeof(my_metadata_t));
+        if (prev->next) {
+            my_remove_from_free_list(prev, NULL);
+            metadata = prev;
+        }
+    }
+
+    // 次のブロックが空いているか確認
+    if ((char*)next < (char*)mmap_from_system(0) + 4096) {
+        if (next->next) {
+            my_remove_from_free_list(next, NULL);
+            metadata->size += next->size + sizeof(my_metadata_t);
+        }
+    }
+    
+    my_add_to_free_list(metadata);
 }
 
 // This is called at the end of each challenge.
-void my_finalize() {
-  // Nothing is here for now.
-  // feel free to add something if you want!
+void my_finalize()
+{
+    // Nothing is here for now.
+    // feel free to add something if you want!
 }
 
-void test() {
-  // Implement here!
-  assert(1 == 1); /* 1 is 1. That's always true! (You can remove this.) */
+void test()
+{
+    // Implement here!
+    assert(1 == 1); /* 1 is 1. That's always true! (You can remove this.) */
 }
